@@ -1,5 +1,10 @@
 # MidgardRPG
 
+![Java](https://img.shields.io/badge/Java-21-E76F00?logo=openjdk&logoColor=white)
+![Paper](https://img.shields.io/badge/Paper-1.21-2F80ED)
+![Redis](https://img.shields.io/badge/Redis-pub%2Fsub-DC382D?logo=redis&logoColor=white)
+![License](https://img.shields.io/github/license/EduardoPSoares/MidgardRPG)
+
 Plugin de RPG modular para servidores Minecraft (Paper 1.21), escrito em Java. Um núcleo (`midgard-core`) oferece
 serviços comuns e cada sistema de jogo é um módulo independente, carregado pelo `midgard-loader`.
 
@@ -26,6 +31,41 @@ midgard-modules/   um módulo por sistema de jogo
 midgard-loader/    plugin que carrega o núcleo e os módulos
 midgard-nms/       código específico da versão do servidor
 midgard-proxy/     plugin Velocity
+```
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    subgraph Servidor Paper
+        loader[midgard-loader] --> core[midgard-core]
+        loader --> mods[midgard-modules<br/>combate, classes, magias,<br/>economia, profissões...]
+        mods --> core
+        core --> nms[midgard-nms<br/>v1_21]
+    end
+    core <-->|perfis| mysql[(MySQL)]
+    core <-->|pub/sub| redis[(Redis)]
+    proxy[midgard-proxy<br/>Velocity] <-->|pub/sub| redis
+```
+
+### Troca de servidor sem perder dados
+
+Antes de mover o jogador, o proxy ([MidgardProxy](https://github.com/EduardoPSoares/MidgardProxy)) pede ao
+servidor de origem que salve o perfil e espera a confirmação (até 2 s) antes de conectar no destino.
+
+```mermaid
+sequenceDiagram
+    participant P as MidgardProxy (Velocity)
+    participant R as Redis
+    participant A as Servidor de origem
+    participant B as Servidor de destino
+    P->>R: publish midgard:sync:req_save
+    R->>A: req_save
+    A->>A: salva o perfil no MySQL
+    A->>R: publish midgard:sync:saved
+    R->>P: saved
+    P->>B: conecta o jogador
+    B->>B: carrega o perfil atualizado
 ```
 
 ## Como compilar
